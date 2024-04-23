@@ -101,6 +101,7 @@ export async function handleStripeConnectedAccount({
   likerlandArtFee = 0,
   channelCommission = 0,
 }, { connectedWallets, from }) {
+  let transfers: Stripe.Transfer[] = [];
   const metadata: Record<string, string> = {
     ownerWallet,
   };
@@ -141,6 +142,7 @@ export async function handleStripeConnectedAccount({
             ...metadata,
           },
         });
+        transfers.push(transfer);
         await likeNFTBookUserCollection.doc(fromLikeWallet).collection('commissions').doc(paymentId).create({
           type: 'channelCommission',
           ownerWallet,
@@ -202,7 +204,7 @@ export async function handleStripeConnectedAccount({
           totalSplit += connectedWallets[wallet];
         }
       });
-      await Promise.all(
+      const connectedTransfers = await Promise.all(
         Object.entries(walletToUserMap)
           .map(async ([wallet, userInfo]) => {
             const {
@@ -248,10 +250,15 @@ export async function handleStripeConnectedAccount({
                 // eslint-disable-next-line no-console
               }).catch(console.error);
             }
+            return transfer;
           }),
       );
+      if (connectedTransfers.length) {
+        transfers = transfers.concat(connectedTransfers);
+      }
     }
   }
+  return { transfers };
 }
 
 export async function createNewNFTBookPayment(classId, paymentId, {
@@ -957,7 +964,7 @@ export async function processNFTBookStripePurchase(
 
     const chargeId = typeof capturedPaymentIntent.latest_charge === 'string' ? capturedPaymentIntent.latest_charge : capturedPaymentIntent.latest_charge?.id;
 
-    await handleStripeConnectedAccount(
+    const { transfers } = await handleStripeConnectedAccount(
       {
         classId,
         priceIndex,
@@ -1024,7 +1031,7 @@ export async function processNFTBookStripePurchase(
         method: 'Fiat',
         from,
       }),
-      createAirtableBookSalesRecordFromStripePaymentIntent(capturedPaymentIntent),
+      createAirtableBookSalesRecordFromStripePaymentIntent(capturedPaymentIntent, transfers),
     ]);
   } catch (err) {
     // eslint-disable-next-line no-console
