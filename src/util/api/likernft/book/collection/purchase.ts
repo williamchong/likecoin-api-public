@@ -20,6 +20,7 @@ import {
 } from '../../../../../constant';
 import { parseImageURLFromMetadata } from '../../metadata';
 import {
+  TransactionFeeInfo,
   formatStripeCheckoutSession, getCouponDiscountRate, handleStripeConnectedAccount,
 } from '../purchase';
 import stripe from '../../../../stripe';
@@ -48,6 +49,8 @@ export async function createNewNFTBookCollectionPayment(collectionId, paymentId,
   from = '',
   isPhysicalOnly = false,
   giftInfo,
+  itemPrices,
+  feeInfo,
 }: {
   type: string;
   email?: string;
@@ -64,6 +67,8 @@ export async function createNewNFTBookCollectionPayment(collectionId, paymentId,
     fromName: string,
     message?: string,
   };
+  itemPrices: any[],
+  feeInfo: TransactionFeeInfo,
 }) {
   const docData = await getBookCollectionInfoById(collectionId);
   const { classIds } = docData;
@@ -83,6 +88,8 @@ export async function createNewNFTBookCollectionPayment(collectionId, paymentId,
     from,
     status: 'new',
     timestamp: FieldValue.serverTimestamp(),
+    itemPrices,
+    feeInfo,
   };
   if (coupon) payload.coupon = coupon;
 
@@ -299,7 +306,11 @@ export async function handleNewNFTBookCollectionStripeCheckout(collectionId: str
     }
   });
 
-  const session = await formatStripeCheckoutSession({
+  const {
+    session,
+    itemPrices,
+    feeInfo,
+  } = await formatStripeCheckoutSession({
     collectionId,
     paymentId,
     from,
@@ -338,6 +349,8 @@ export async function handleNewNFTBookCollectionStripeCheckout(collectionId: str
     from: from as string,
     isPhysicalOnly,
     giftInfo,
+    itemPrices,
+    feeInfo,
   });
 
   return {
@@ -425,12 +438,6 @@ export async function processNFTBookCollectionStripePurchase(
     metadata: {
       collectionId,
       paymentId,
-      stripeFeeAmount = '0',
-      likerLandFeeAmount = '0',
-      likerLandTipFeeAmount = '0',
-      likerLandCommission = '0',
-      channelCommission = '0',
-      likerlandArtFee = '0',
     } = {} as any,
     customer_details: customer,
     payment_intent: paymentIntent,
@@ -465,7 +472,16 @@ export async function processNFTBookCollectionStripePurchase(
       giftInfo,
       isPhysicalOnly,
       originalPriceInDecimal,
+      feeInfo,
     } = txData;
+    const {
+      stripeFeeAmount,
+      likerLandFeeAmount,
+      likerLandTipFeeAmount,
+      likerLandCommission,
+      channelCommission,
+      likerLandArtFee,
+    } = feeInfo;
     const [capturedPaymentIntent, collectionData] = await Promise.all([
       stripe.paymentIntents.capture(paymentIntent as string, {
         expand: STRIPE_PAYMENT_INTENT_EXPAND_OBJECTS,
@@ -493,12 +509,12 @@ export async function processNFTBookCollectionStripePurchase(
         chargeId,
         currency,
         exchangeRate,
-        stripeFeeAmount: Number(stripeFeeAmount),
-        likerLandFeeAmount: Number(likerLandFeeAmount),
-        likerLandTipFeeAmount: Number(likerLandTipFeeAmount),
-        likerLandCommission: Number(likerLandCommission),
-        channelCommission: Number(channelCommission),
-        likerlandArtFee: Number(likerlandArtFee),
+        stripeFeeAmount,
+        likerLandFeeAmount,
+        likerLandTipFeeAmount,
+        likerLandCommission,
+        channelCommission,
+        likerLandArtFee,
       },
       { connectedWallets, from },
     );
@@ -544,6 +560,7 @@ export async function processNFTBookCollectionStripePurchase(
       }),
       createAirtableBookSalesRecordFromStripePaymentIntent({
         pi: capturedPaymentIntent,
+        feeInfo,
         transfers,
         shippingCountry: shippingDetails?.address?.country,
         shippingCost: shippingCostAmount,

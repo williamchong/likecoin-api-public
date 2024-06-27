@@ -55,6 +55,16 @@ import {
 import { createAirtableBookSalesRecordFromStripePaymentIntent } from '../../../airtable';
 import { getUserWithCivicLikerPropertiesByWallet } from '../../users/getPublicInfo';
 
+export type TransactionFeeInfo = {
+  stripeFeeAmount: number
+  likerLandTipFeeAmount: number
+  likerLandFeeAmount: number
+  likerLandCommission: number
+  channelCommission: number
+  likerLandArtFee: number
+  customPriceDiff: number
+}
+
 function convertCurrency(priceInDecimal, exchangeRate) {
   return Math.round(priceInDecimal * exchangeRate);
 }
@@ -93,7 +103,7 @@ export async function handleStripeConnectedAccount({
   likerLandFeeAmount = 0,
   likerLandTipFeeAmount = 0,
   likerLandCommission = 0,
-  likerlandArtFee = 0,
+  likerLandArtFee = 0,
   channelCommission = 0,
 }, { connectedWallets, from }) {
   let transfers: Stripe.Transfer[] = [];
@@ -179,7 +189,7 @@ export async function handleStripeConnectedAccount({
       - (stripeFeeAmount
         + likerLandFeeAmount
         + likerLandCommission
-        + likerlandArtFee
+        + likerLandArtFee
         + likerLandTipFeeAmount);
     if (amountToSplit > 0) {
       const wallets = Object.keys(connectedWallets);
@@ -282,6 +292,8 @@ export async function createNewNFTBookPayment(classId, paymentId, {
   giftInfo,
   from = '',
   isPhysicalOnly = false,
+  itemPrices,
+  feeInfo,
 }: {
   type: string;
   email?: string;
@@ -300,6 +312,8 @@ export async function createNewNFTBookPayment(classId, paymentId, {
     fromName: string,
     message?: string,
   };
+  itemPrices: any[],
+  feeInfo: TransactionFeeInfo,
 }) {
   const payload: any = {
     type,
@@ -318,6 +332,8 @@ export async function createNewNFTBookPayment(classId, paymentId, {
     from,
     status: 'new',
     timestamp: FieldValue.serverTimestamp(),
+    itemPrices,
+    feeInfo,
   };
   if (coupon) payload.coupon = coupon;
 
@@ -521,7 +537,7 @@ export async function formatStripeCheckoutSession({
         : 0;
       const convertedPriceInDecimal = convertUSDToCurrency(item.priceInDecimal, convertedCurrency);
       const convertedOriginalPriceInDecimal = convertedPriceInDecimal
-    - convertedCustomPriceDiffInDecimal;
+        - convertedCustomPriceDiffInDecimal;
       const likerLandFeeAmount = Math.ceil(
         convertedOriginalPriceInDecimal * NFT_BOOK_LIKER_LAND_FEE_RATIO,
       );
@@ -682,7 +698,19 @@ export async function formatStripeCheckoutSession({
     }
   }
   const session = await stripe.checkout.sessions.create(checkoutPayload);
-  return session;
+  return {
+    session,
+    itemPrices,
+    feeInfo: {
+      stripeFeeAmount,
+      likerLandTipFeeAmount,
+      likerLandFeeAmount,
+      likerLandCommission,
+      channelCommission,
+      likerLandArtFee,
+      customPriceDiff: totalCustomPriceDiffInDecimal,
+    },
+  };
 }
 
 export async function handleNewStripeCheckout(classId: string, priceIndex: number, {
@@ -834,7 +862,11 @@ export async function handleNewStripeCheckout(classId: string, priceIndex: numbe
     description = undefined;
   } // stripe does not like empty string
 
-  const session = await formatStripeCheckoutSession({
+  const {
+    session,
+    itemPrices,
+    feeInfo,
+  } = await formatStripeCheckoutSession({
     classId,
     iscnPrefix,
     paymentId,
@@ -878,6 +910,8 @@ export async function handleNewStripeCheckout(classId: string, priceIndex: numbe
     giftInfo,
     isPhysicalOnly,
     from: from as string,
+    itemPrices,
+    feeInfo,
   });
 
   return {
@@ -977,7 +1011,7 @@ export async function processNFTBookStripePurchase(
       likerLandTipFeeAmount = '0',
       likerLandCommission = '0',
       channelCommission = '0',
-      likerlandArtFee = '0',
+      likerLandArtFee = '0',
     } = {} as any,
     customer_details: customer,
     payment_intent: paymentIntent,
@@ -1015,6 +1049,7 @@ export async function processNFTBookStripePurchase(
       giftInfo,
       isPhysicalOnly,
       originalPriceInDecimal,
+      feeInfo,
     } = txData;
     const [capturedPaymentIntent, classData] = await Promise.all([
       stripe.paymentIntents.capture(paymentIntent as string, {
@@ -1050,7 +1085,7 @@ export async function processNFTBookStripePurchase(
         likerLandTipFeeAmount: Number(likerLandTipFeeAmount),
         likerLandCommission: Number(likerLandCommission),
         channelCommission: Number(channelCommission),
-        likerlandArtFee: Number(likerlandArtFee),
+        likerLandArtFee: Number(likerLandArtFee),
       },
       { connectedWallets, from },
     );
@@ -1103,6 +1138,7 @@ export async function processNFTBookStripePurchase(
       }),
       createAirtableBookSalesRecordFromStripePaymentIntent({
         pi: capturedPaymentIntent,
+        feeInfo,
         transfers,
         shippingCountry: shippingDetails?.address?.country,
         shippingCost: shippingCostAmount,
