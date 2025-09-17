@@ -13,6 +13,7 @@ import {
   getNFTClassDataById as getEVMNFTClassDataById,
   listNFTTokenOwner,
   getNFTClassOwner,
+  getTokenAccountsByBookNFT,
 } from '../../../util/evm/nft';
 
 const classChainMetadataCache = new LRUCache({
@@ -134,15 +135,11 @@ function formatOwnerInfo(owners) {
 
 async function getNFTClassOwnerInfo(classId) {
   if (isEVMClassId(classId)) {
-    // TODO: iterate all pages or change to another owner API
-    const data = await listNFTTokenOwner(classId);
+    const { data } = await getTokenAccountsByBookNFT(classId);
     const ownersInfo = {};
-    data.data.forEach((item) => {
-      const { owner_address: owner, token_id: tokenId } = item;
-      if (!ownersInfo[owner]) {
-        ownersInfo[owner] = [];
-      }
-      ownersInfo[owner].push(tokenId);
+    data.forEach((item) => {
+      const { evm_address: evmAddress } = item;
+      ownersInfo[evmAddress] = [];
     });
     return ownersInfo;
   }
