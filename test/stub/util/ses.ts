@@ -144,3 +144,24 @@ export function sendNFTBookOutOfStockEmail({
 }) {
   return Promise.resolve();
 }
+
+export function sendPlusGiftPendingClaimEmail({
+  fromName,
+  toName,
+  toEmail,
+  message,
+  cartId,
+  paymentId,
+  claimToken,
+  isResend = false,
+}) {
+  return Promise.resolve();
+}
+
+export function sendPlusGiftClaimedEmail({
+  fromEmail,
+  fromName,
+  toName,
+}) {
+  return Promise.resolve();
+}
