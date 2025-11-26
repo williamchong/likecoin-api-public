@@ -911,7 +911,7 @@ export function sendPlusGiftPendingClaimEmail({
   isResend = false,
 }) {
   if (TEST_MODE) return Promise.resolve();
-  const titleZh = `${isResend ? '（提示）' : ''}${fromName} 送了 3ook+ 禮物會籍給你`;
+  const titleZh = `${isResend ? '（提示）' : ''}${fromName} 送贈了 Plus 會籍給你`;
   const claimPageURLZh = getPlusGiftPageClaimURL({
     cartId,
     paymentId,
@@ -943,11 +943,11 @@ export function sendPlusGiftPendingClaimEmail({
           Data: getNFTTwoContentWithMessageAndButtonTemplate({
             title1: titleZh,
             content1: `<p>親愛的 ${toName || '讀者'}：</p>
-            <p>${fromName} ${isResend ? '先前' : ''}贈送了 3ook+ 會籍給你作為禮物。</p>
-            <p>請在<a href="${claimPageURLZh}">3ook.com 書店</a>註冊獲取會籍，開始你的 AI 閱讀之旅。</p>`,
+            <p>${fromName} ${isResend ? '先前' : ''}送贈了 Plus 會籍給你。</p>
+            <p>請在 <a href="${claimPageURLZh}">3ook.com 書店</a>註冊獲取會籍，開始你的 AI 閱讀之旅。</p>`,
             messageTitle1: `${fromName} 的留言`,
             messageContent1: message,
-            buttonText1: '領取我的 3ook+ 會籍',
+            buttonText1: '領取我的 Plus 會籍',
             buttonHref1: claimPageURLZh,
             append1: `<p>如有任何疑問，歡迎<a href="${CUSTOMER_SERVICE_URL}">聯絡客服</a>查詢。
             <br>願你享受閱讀的樂趣。</p>
@@ -966,7 +966,7 @@ export function sendPlusGiftClaimedEmail({
   toName,
 }) {
   if (TEST_MODE) return Promise.resolve();
-  const titleZh = `${toName} 已接受你的 3ook+ 會籍禮物`;
+  const titleZh = `${toName} 已接受你送贈的 Plus 會籍`;
   const params = {
     Source: SYSTEM_EMAIL,
     ReplyToAddresses: [CUSTOMER_SERVICE_EMAIL],
@@ -992,7 +992,7 @@ export function sendPlusGiftClaimedEmail({
           Data: getNFTTwoContentWithMessageAndButtonTemplate({
             title1: titleZh,
             content1: `<p>親愛的 ${fromName}：</p>
-            <p>你送給 ${toName} 的 3ook+ 會籍禮物已被接收。</p>
+            <p>你送贈給 ${toName} 的 Plus 會籍已被接收。</p>
             <p>感謝你分享閱讀的樂趣</p>
             <p>3ook.com 書店</p>`,
           }).body,
