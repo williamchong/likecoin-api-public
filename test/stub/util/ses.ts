@@ -147,6 +147,7 @@ export function sendNFTBookOutOfStockEmail({
 
 export function sendPlusGiftPendingClaimEmail({
   fromName,
+  fromEmail,
   toName,
   toEmail,
   message,

@@ -902,6 +902,7 @@ export function sendNFTBookOutOfStockEmail({
 
 export function sendPlusGiftPendingClaimEmail({
   fromName,
+  fromEmail,
   toName,
   toEmail,
   message,
@@ -918,6 +919,10 @@ export function sendPlusGiftPendingClaimEmail({
     token: claimToken,
     language: 'zh-Hant',
   });
+  const ccAddresses: string[] = [];
+  if (fromEmail) {
+    ccAddresses.push(fromEmail);
+  }
   const params = {
     Source: SYSTEM_EMAIL,
     ReplyToAddresses: [CUSTOMER_SERVICE_EMAIL],
@@ -930,6 +935,7 @@ export function sendPlusGiftPendingClaimEmail({
     ],
     Destination: {
       ToAddresses: [toEmail],
+      CcAddresses: ccAddresses,
       BccAddresses: [SALES_EMAIL],
     },
     Message: {

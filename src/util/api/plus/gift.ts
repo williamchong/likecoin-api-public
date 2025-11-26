@@ -431,6 +431,7 @@ export async function processPlusGiftStripePurchase(
 
   await sendPlusGiftPendingClaimEmail({
     fromName: giftFromName,
+    fromEmail: email,
     toName: giftToName,
     toEmail: giftToEmail,
     message: giftMessage,
