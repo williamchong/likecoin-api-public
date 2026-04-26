@@ -465,7 +465,7 @@ router.post('/portal', jwtAuth('write:plus'), async (req, res, next) => {
     }
     const session = await getStripeClient().billingPortal.sessions.create({
       customer: customerId,
-      return_url: `https://${BOOK3_HOSTNAME}/account`,
+      return_url: `https://${BOOK3_HOSTNAME}/account?action=billing-return`,
     });
 
     publisher.publish(PUBSUB_TOPIC_MISC, req, {
