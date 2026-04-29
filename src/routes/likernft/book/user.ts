@@ -370,7 +370,9 @@ router.get(
         const data = doc.data();
         data.id = doc.id;
         return data as BookPurchaseCommission;
-      }).map((data) => filterBookPurchaseCommission(data));
+      }).map((data) => filterBookPurchaseCommission(data, {
+        includeBuyerEmail: data.ownerWallet === wallet,
+      }));
       res.json({ commissions: list });
     } catch (err) {
       next(err);
@@ -393,7 +395,13 @@ router.get(
         .collection('commissions')
         .doc(id)
         .get();
-      res.json(filterBookPurchaseCommission(commissionDoc.data() as BookPurchaseCommission));
+      if (!commissionDoc.exists) {
+        throw new ValidationError('COMMISSION_NOT_FOUND', 404);
+      }
+      const commissionData = commissionDoc.data() as BookPurchaseCommission;
+      res.json(filterBookPurchaseCommission(commissionData, {
+        includeBuyerEmail: commissionData.ownerWallet === wallet,
+      }));
     } catch (err) {
       next(err);
     }

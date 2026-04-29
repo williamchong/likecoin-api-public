@@ -152,6 +152,7 @@ export async function handleStripeConnectedAccount({
             amountTotal,
             amount: channelCommission,
             currency,
+            ...(buyerEmail ? { buyerEmail } : {}),
             timestamp: FieldValue.serverTimestamp(),
           });
           const shouldSendNotificationEmailToChannel = !isOwner
@@ -246,6 +247,7 @@ export async function handleStripeConnectedAccount({
               amountTotal,
               amount: amountSplit,
               currency,
+              ...(buyerEmail ? { buyerEmail } : {}),
               timestamp: FieldValue.serverTimestamp(),
             });
             const likerUserInfo = await getUserWithCivicLikerPropertiesByWallet(wallet);
@@ -314,6 +316,7 @@ export async function handleStripeConnectedAccount({
           amountTotal,
           amount: likerLandArtFee,
           currency,
+          ...(buyerEmail ? { buyerEmail } : {}),
           timestamp: FieldValue.serverTimestamp(),
         });
       } catch (e) {
