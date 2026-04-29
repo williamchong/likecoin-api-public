@@ -81,6 +81,7 @@ export interface BookPurchaseCommission {
   amountTotal: number;
   amount: number;
   currency: string;
+  buyerEmail?: string;
   timestamp?: { toMillis: () => number };
 }
 
