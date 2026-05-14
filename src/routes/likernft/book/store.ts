@@ -500,7 +500,7 @@ router.post(['/:classId/new', '/class/:classId/new'], jwtAuth('write:nftbook'), 
     const metadata = classData;
     ownerWallet = classOwner;
 
-    const isAuthorized = checkIsAuthorized({ ownerWallet, moderatorWallets }, req);
+    const isAuthorized = checkIsAuthorized({ ownerWallet, moderatorWallets: [] }, req);
     if (!isAuthorized) throw new ValidationError('NOT_OWNER_OF_NFT_CLASS', 403);
 
     const {
@@ -684,8 +684,12 @@ router.post(['/:classId/settings', '/class/:classId/settings'], jwtAuth('write:n
     if (!bookInfo) throw new ValidationError('CLASS_ID_NOT_FOUND', 404);
     const {
       ownerWallet,
+      moderatorWallets: existingModeratorWallets = [],
     } = bookInfo;
-    const isAuthorized = checkIsAuthorized({ ownerWallet, moderatorWallets }, req);
+    const isAuthorized = checkIsAuthorized(
+      { ownerWallet, moderatorWallets: existingModeratorWallets },
+      req,
+    );
     if (!isAuthorized) throw new ValidationError('NOT_OWNER_OF_NFT_CLASS', 403);
     if (connectedWallets) await validateConnectedWallets(connectedWallets);
     await updateNftBookInfo(classId, {
