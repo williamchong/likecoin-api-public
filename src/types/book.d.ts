@@ -207,6 +207,11 @@ export interface NFTBookUserData {
   stripeConnectAccountId?: string;
   isStripeConnectReady?: boolean;
   stripeCustomerId?: string;
+  /** When true, this seller's books may be purchased via the x402 / on-chain
+   *  USDC rail. Author royalty splits are paid in USDC directly to the EVM
+   *  wallets in `connectedWallets`, so no Stripe Connect onboarding is needed.
+   *  Gated together with the global `X402_PAYMENT_ENABLED` config flag. */
+  isX402PaymentEnabled?: boolean;
   migrateMethod?: string;
   migrateTimestamp?: any;
   timestamp?: any;

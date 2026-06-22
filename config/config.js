@@ -95,6 +95,21 @@ config.PLUS_SUBSCRIPTION_NOTIFICATION_WEBHOOK = '';
 config.NFT_BOOK_LIKER_LAND_ART_STRIPE_WALLET = '';
 config.SLACK_OUT_OF_STOCK_NOTIFICATION_THRESHOLD = 5;
 
+// x402 / on-chain USDC book payment (pilot). Disabled unless both the global
+// flag below and the seller's `isX402PaymentEnabled` opt-in are set.
+config.X402_PAYMENT_ENABLED = false;
+// USDC contract override; empty falls back to the network default resolved in
+// util/api/likernft/book/onchainPayment.ts (Base mainnet / Base Sepolia).
+config.USDC_CONTRACT_ADDRESS = '';
+// Wallet that receives buyers' USDC and redistributes author splits; empty
+// falls back to the platform signer address (LIKER_NFT_PRIVATE_KEY).
+config.X402_PAYMENT_RECEIVER_ADDRESS = '';
+// EVM wallet for the Liker Land art fee on-chain; empty skips the art-fee split.
+config.NFT_BOOK_LIKER_LAND_ART_EVM_WALLET = '';
+// Optional external x402 facilitator. Empty = self-settle the EIP-3009
+// authorization from the platform wallet (no external dependency).
+config.X402_FACILITATOR_URL = '';
+
 config.AUTHCORE_PUBLIC_CERT_PATH = '';
 
 config.LIKECO_INTERNAL_API_ENDPOINT = '';

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { getAddress } from 'viem';
 import { ValidationError } from '../../../util/ValidationError';
 import {
   checkIsAuthorized,
@@ -33,6 +34,17 @@ import {
   updateNFTBookPostDeliveryData,
 } from '../../../util/api/likernft/book/purchase';
 import { claimNFTBookCart, handleNewCartStripeCheckout } from '../../../util/api/likernft/book/cart';
+import {
+  prepareX402Cart,
+  assertX402SellersOptedIn,
+  getX402Requirements,
+  createX402Quote,
+  getX402Quote,
+  verifyAndSettleX402Payment,
+  markX402QuoteSettled,
+  processNFTBookCartOnChain,
+  X402_VERSION,
+} from '../../../util/api/likernft/book/onchainPayment';
 import logServerEvents from '../../../util/logServerEvents';
 import { getBook3CartURL, getBook3NFTClassPageURL } from '../../../util/liker-land';
 import { isEVMClassId, triggerNFTIndexerUpdate } from '../../../util/evm/nft';
@@ -45,6 +57,10 @@ import { validateBody, validateParams } from '../../../middleware/validate';
 import {
   BookCartClaimBodySchema,
   BookCartNewBodySchema,
+  BookX402NewBodySchema,
+  BookX402NewResponseSchema,
+  BookX402SettleBodySchema,
+  BookX402SettleResponseSchema,
   BookFreeClaimBodySchema,
   BookMessageBodySchema,
   BookPurchaseNewBodySchema,
@@ -271,6 +287,93 @@ router.post('/cart/new', jwtOptionalAuth('read:nftbook'), validateBody(BookCartN
         posthogDistinctId,
       });
     }
+  } catch (err) {
+    next(err);
+  }
+});
+
+// x402 step 1: price the cart server-side, gate on the seller opt-in, and
+// return HTTP 402 with the EIP-3009 authorization the client must sign.
+router.post('/x402/new', jwtOptionalAuth('read:nftbook'), validateBody(BookX402NewBodySchema), async (req, res, next) => {
+  try {
+    const { from } = req.query as Record<string, string>;
+    const { items, email } = req.body;
+    const ipCountry = ((req.headers['cf-ipcountry'] as string) || (req.body?.ipCountry as string) || '').toUpperCase() || undefined;
+
+    const { itemInfos, itemPrices, totalFeeInfo } = await prepareX402Cart(items, from as string);
+    await assertX402SellersOptedIn(itemInfos);
+
+    const description = itemInfos.map((item) => item.name).join(', ').slice(0, 200);
+    const requirements = getX402Requirements({
+      priceInDecimal: totalFeeInfo.priceInDecimal,
+      description,
+    });
+    const { cartId, paymentId, claimToken } = await createX402Quote({
+      itemInfos,
+      itemPrices,
+      totalFeeInfo,
+      requirements,
+      from: from as string,
+      ipCountry,
+      email,
+    });
+
+    res.status(402);
+    sendValidatedJSON(res, BookX402NewResponseSchema, {
+      x402Version: X402_VERSION,
+      cartId,
+      paymentId,
+      claimToken,
+      accepts: [requirements],
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// x402 step 2: verify + settle the signed authorization (USDC buyer → platform),
+// then run the on-chain cart pipeline (mint, author USDC payout, auto-claim).
+router.post('/x402/settle', jwtOptionalAuth('read:nftbook'), validateBody(BookX402SettleBodySchema), async (req, res, next) => {
+  try {
+    const { cartId, payment } = req.body;
+    const quote = await getX402Quote(cartId);
+
+    let { settleTxHash } = quote;
+    // Idempotent: a re-sent settle for an already-settled quote skips the
+    // on-chain pull (the USDC nonce would revert it anyway) and re-runs the
+    // pipeline, which no-ops via PAYMENT_ALREADY_PROCESSED.
+    if (quote.status !== 'settled') {
+      settleTxHash = await verifyAndSettleX402Payment(payment, quote.requirements);
+      await markX402QuoteSettled(cartId, settleTxHash);
+    }
+
+    // The x402 signer is the buyer wallet, so auto-claim straight to it.
+    const evmWallet = req.user?.evmWallet || getAddress(payment.from);
+    await processNFTBookCartOnChain(
+      {
+        itemInfos: quote.itemInfos,
+        itemPrices: quote.itemPrices,
+        totalFeeInfo: quote.totalFeeInfo,
+      },
+      {
+        cartId,
+        paymentId: quote.paymentId,
+        claimToken: quote.claimToken,
+        evmWallet,
+        from: quote.from,
+        ipCountry: quote.ipCountry,
+        settleTxHash,
+      },
+      { email: quote.email || null },
+      req,
+    );
+
+    sendValidatedJSON(res, BookX402SettleResponseSchema, {
+      cartId,
+      paymentId: quote.paymentId,
+      claimToken: quote.claimToken,
+      settleTxHash: settleTxHash as string,
+    });
   } catch (err) {
     next(err);
   }

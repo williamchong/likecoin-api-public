@@ -8,7 +8,7 @@ import {
   NFT_BOOK_LIKER_LAND_COMMISSION_RATIO,
   NFT_BOOK_LIKER_LAND_ART_FEE_RATIO,
 } from '../../../../../config/config';
-import { CartItemWithInfo, ItemPriceInfo } from './type';
+import { CartItemWithInfo, ItemPriceInfo, TransactionFeeInfo } from './type';
 
 export function checkIsFromLikerLand(from: string): boolean {
   return from === NFT_BOOK_DEFAULT_FROM_CHANNEL;
@@ -66,4 +66,51 @@ export function calculateItemPrices(items: CartItemWithInfo[], from?: string): I
     },
   );
   return itemPrices;
+}
+
+// Aggregate per-item prices into a cart-level fee breakdown. royaltyToSplit is
+// what's left after platform/channel/art fees and is the amount paid out to
+// authors. stripeFeeAmount is a flat cart-level fee (0 on the on-chain rail).
+export function calculateTotalFeeInfo(
+  itemPrices: ItemPriceInfo[],
+  stripeFeeAmount = 0,
+): TransactionFeeInfo {
+  return itemPrices.reduce(
+    (acc, item) => ({
+      priceInDecimal: acc.priceInDecimal + item.priceInDecimal * item.quantity,
+      originalPriceInDecimal: acc.originalPriceInDecimal
+        + item.originalPriceInDecimal * item.quantity,
+      likerLandTipFeeAmount: acc.likerLandTipFeeAmount + item.likerLandTipFeeAmount * item.quantity,
+      likerLandFeeAmount: acc.likerLandFeeAmount + item.likerLandFeeAmount * item.quantity,
+      likerLandCommission: acc.likerLandCommission + item.likerLandCommission * item.quantity,
+      channelCommission: acc.channelCommission + item.channelCommission * item.quantity,
+      likerLandArtFee: acc.likerLandArtFee + item.likerLandArtFee * item.quantity,
+      customPriceDiffInDecimal: acc.customPriceDiffInDecimal
+        + item.customPriceDiffInDecimal * item.quantity,
+      stripeFeeAmount: acc.stripeFeeAmount,
+      royaltyToSplit:
+        acc.royaltyToSplit
+        + Math.max(
+          item.priceInDecimal
+          - item.likerLandFeeAmount
+          - item.likerLandTipFeeAmount
+          - item.likerLandCommission
+          - item.channelCommission
+          - item.likerLandArtFee,
+          0,
+        ) * item.quantity,
+    }),
+    {
+      priceInDecimal: 0,
+      originalPriceInDecimal: 0,
+      stripeFeeAmount,
+      likerLandTipFeeAmount: 0,
+      likerLandFeeAmount: 0,
+      likerLandCommission: 0,
+      channelCommission: 0,
+      likerLandArtFee: 0,
+      customPriceDiffInDecimal: 0,
+      royaltyToSplit: 0,
+    },
+  );
 }

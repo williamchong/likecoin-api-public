@@ -43,7 +43,7 @@ import { getCurrencyPriceInDecimal } from '../../../pricing';
 import { checkIsFromLikerLand, calculateItemPrices } from './price';
 
 // Re-export pure functions for backward compatibility
-export { checkIsFromLikerLand, calculateItemPrices } from './price';
+export { checkIsFromLikerLand, calculateItemPrices, calculateTotalFeeInfo } from './price';
 
 export async function handleStripeConnectedAccount({
   classId = '',

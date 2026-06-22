@@ -145,6 +145,29 @@ export const BookCartClaimBodySchema = z.object({
   loginMethod: z.string().optional(),
 });
 
+const HexStringSchema = z.string().regex(/^0x[0-9a-fA-F]+$/);
+
+export const BookX402NewBodySchema = TrackingFieldsSchema.extend({
+  items: z.array(BookCartItemSchema).min(1),
+  email: z.string().email().optional(),
+});
+
+// The signed EIP-3009 transferWithAuthorization payload (the X-PAYMENT body).
+export const X402PaymentPayloadSchema = z.object({
+  from: z.string().min(1),
+  to: z.string().min(1),
+  value: z.string().min(1),
+  validAfter: z.string().min(1),
+  validBefore: z.string().min(1),
+  nonce: HexStringSchema,
+  signature: HexStringSchema,
+});
+
+export const BookX402SettleBodySchema = z.object({
+  cartId: z.string().min(1),
+  payment: X402PaymentPayloadSchema,
+});
+
 export const BookMessageBodySchema = z.object({
   wallet: z.string().min(1),
   message: z.string().min(1),
@@ -261,6 +284,40 @@ export const StripeCheckoutResponseSchema = z.object({
 
 export const BookPurchaseNewResponseSchema = StripeCheckoutResponseSchema;
 export const BookCartNewResponseSchema = StripeCheckoutResponseSchema;
+
+export const X402PaymentRequirementsSchema = z.object({
+  scheme: z.literal('exact'),
+  network: z.string(),
+  asset: z.string(),
+  payTo: z.string(),
+  maxAmountRequired: z.string(),
+  resource: z.string(),
+  description: z.string(),
+  nonce: z.string(),
+  validAfter: z.string(),
+  validBefore: z.string(),
+  extra: z.object({
+    name: z.string(),
+    version: z.string(),
+  }),
+});
+
+// 402 response: the cart identifiers plus the x402 payment requirements the
+// client must satisfy by signing and resending to /x402/settle.
+export const BookX402NewResponseSchema = z.object({
+  x402Version: z.number(),
+  cartId: z.string(),
+  paymentId: z.string(),
+  claimToken: z.string(),
+  accepts: z.array(X402PaymentRequirementsSchema),
+});
+
+export const BookX402SettleResponseSchema = z.object({
+  cartId: z.string(),
+  paymentId: z.string(),
+  claimToken: z.string(),
+  settleTxHash: z.string(),
+});
 
 export const BookCartClaimResponseSchema = z.object({
   classIds: z.array(z.string()),

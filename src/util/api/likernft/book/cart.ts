@@ -24,6 +24,7 @@ import {
   processNFTBookPurchaseTxGet,
   claimNFTBook,
   calculateItemPrices,
+  calculateTotalFeeInfo,
   checkIsFromLikerLand,
 } from './purchase';
 import { depositLikeCollectiveReward } from '../../../evm/likeCollective';
@@ -1397,44 +1398,7 @@ export async function formatCartItemInfosFromSession(
   }
   const itemInfos = await formatCartItemsWithInfo(items);
   const itemPrices = await calculateItemPrices(itemInfos, from);
-  const feeInfo: TransactionFeeInfo = itemPrices.reduce(
-    (acc, item) => ({
-      priceInDecimal: acc.priceInDecimal + item.priceInDecimal * item.quantity,
-      originalPriceInDecimal: acc.originalPriceInDecimal
-        + item.originalPriceInDecimal * item.quantity,
-      likerLandTipFeeAmount: acc.likerLandTipFeeAmount + item.likerLandTipFeeAmount * item.quantity,
-      likerLandFeeAmount: acc.likerLandFeeAmount + item.likerLandFeeAmount * item.quantity,
-      likerLandCommission: acc.likerLandCommission + item.likerLandCommission * item.quantity,
-      channelCommission: acc.channelCommission + item.channelCommission * item.quantity,
-      likerLandArtFee: acc.likerLandArtFee + item.likerLandArtFee * item.quantity,
-      customPriceDiffInDecimal: acc.customPriceDiffInDecimal
-        + item.customPriceDiffInDecimal * item.quantity,
-      stripeFeeAmount: acc.stripeFeeAmount,
-      royaltyToSplit:
-        acc.royaltyToSplit
-        + Math.max(
-          item.priceInDecimal
-          - item.likerLandFeeAmount
-          - item.likerLandTipFeeAmount
-          - item.likerLandCommission
-          - item.channelCommission
-          - item.likerLandArtFee,
-          0,
-        ) * item.quantity,
-    }),
-    {
-      priceInDecimal: 0,
-      originalPriceInDecimal: 0,
-      stripeFeeAmount,
-      likerLandTipFeeAmount: 0,
-      likerLandFeeAmount: 0,
-      likerLandCommission: 0,
-      channelCommission: 0,
-      likerLandArtFee: 0,
-      customPriceDiffInDecimal: 0,
-      royaltyToSplit: 0,
-    },
-  );
+  const feeInfo = calculateTotalFeeInfo(itemPrices, stripeFeeAmount);
   const [coupon = ''] = await getStripePromotoionCodesFromCheckoutSession(sessionId);
   return {
     itemInfos,
