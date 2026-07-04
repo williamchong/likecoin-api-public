@@ -45,5 +45,12 @@ export interface ArweaveTxData {
   accessToken?: string;
   isSponsored?: boolean;
   sponsoredETH?: string;
+  // Irys funding lifecycle for this upload: the on-chain top-up tx and whether the
+  // node credited it. `sent` = broadcast + persisted before notify; `credited` =
+  // indexer acknowledged. Pending (`sent`) docs are replayed by the reconcile job.
+  fundingTxHash?: string;
+  fundingStatus?: 'sent' | 'credited';
+  fundingETH?: string;
+  fundingTimestamp?: any;
   [key: string]: any;
 }

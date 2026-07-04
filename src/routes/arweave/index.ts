@@ -11,7 +11,7 @@ import {
   ARWEAVE_EVM_TARGET_ADDRESS,
   ARWEAVE_LINK_INTERNAL_TOKEN,
 } from '../../../config/config';
-import { getPublicKey, fund as fundIrys, signData as signArweaveData } from '../../util/arweave/signer';
+import { getPublicKey, signData as signArweaveData } from '../../util/arweave/signer';
 import {
   createNewArweaveTx,
   getArweaveTxInfo,
@@ -20,6 +20,7 @@ import {
   resolveArweaveTxKey,
 } from '../../util/api/arweave/tx';
 import { getRemainingQuota, checkAndReserveQuota, rollbackQuota } from '../../util/api/arweave/quota';
+import { reconcilePendingIrysFunding, fundUploadIfNeeded } from '../../util/api/arweave/funding';
 import {
   ArweaveEstimateBodySchema,
   ArweaveEstimateResponseSchema,
@@ -31,8 +32,11 @@ import {
   ArweavePublicKeyResponseSchema,
   ArweaveLinkResponseSchema,
   ArweaveAccessTokenResponseSchema,
+  ArweaveFundingReconcileBodySchema,
+  ArweaveFundingReconcileResponseSchema,
 } from '../../util/api/arweave/schemas';
 import { jwtAuth, jwtOptionalAuth } from '../../middleware/jwt';
+import { arweaveAdminAuth } from '../../middleware/arweave-admin-auth';
 import { validateBody, validateParams } from '../../middleware/validate';
 import { sendValidatedJSON } from '../../util/ValidationHelper';
 import { ValidationError } from '../../util/ValidationError';
@@ -141,9 +145,7 @@ router.post(
             isSponsored: true,
             sponsoredETH: ETH,
           });
-          if (ETH && ETH !== '0') {
-            await fundIrys(ETH);
-          }
+          await fundUploadIfNeeded(uploadId, ETH);
         } catch (err) {
           await rollbackQuota(wallet, fileSize, ETH).catch((e) => {
             // eslint-disable-next-line no-console
@@ -171,9 +173,7 @@ router.post(
           }
           throw error;
         }
-        if (ETH && ETH !== '0') {
-          await fundIrys(ETH);
-        }
+        await fundUploadIfNeeded(uploadId, ETH);
       }
 
       // TODO: verify signatureData match filesize if possible
@@ -315,6 +315,29 @@ router.post(
       if (status !== 'complete') throw new ValidationError('TX_NOT_COMPLETE', 409);
       const accessToken = await rotateArweaveTxAccessToken(txHash);
       sendValidatedJSON(res, ArweaveAccessTokenResponseSchema, { accessToken });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// Admin/cron: re-notify Irys funding sends that were broadcast but never confirmed
+// credited. Idempotent; `dryRun` lists only.
+router.post(
+  '/v2/admin/funding/reconcile',
+  arweaveAdminAuth,
+  validateBody(ArweaveFundingReconcileBodySchema),
+  async (req, res, next) => {
+    try {
+      const { dryRun = false, limit } = req.body;
+      const result = await reconcilePendingIrysFunding({ dryRun, limit });
+      sendValidatedJSON(res, ArweaveFundingReconcileResponseSchema, { success: true, ...result });
+      publisher.publish(PUBSUB_TOPIC_MISC, req, {
+        logType: 'arweaveFundingReconcileV2',
+        dryRun,
+        total: result.total,
+        credited: result.credited,
+      });
     } catch (error) {
       next(error);
     }
