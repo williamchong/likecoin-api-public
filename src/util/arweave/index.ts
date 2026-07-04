@@ -1,6 +1,8 @@
 import Arweave from 'arweave/node';
 import LRU from 'lru-cache';
-import { getEthereumBundlr } from './signer';
+import { formatEther } from 'viem';
+import { getPrice } from './signer';
+import { scaleBigInt } from '../misc';
 
 const arweaveIdCache = new LRU({ max: 4096, ttl: 86400000 }); // 1day
 
@@ -62,10 +64,12 @@ export async function estimateARV2Price(
       };
     }
   }
-  const ethereumBundlr = await getEthereumBundlr();
-  const ethereumPriceAtomic = await ethereumBundlr.getPrice(fileSize);
-  const ethereumPriceConverted = ethereumBundlr.utils.fromAtomic(ethereumPriceAtomic);
+  const priceAtomic = await getPrice(fileSize);
+  // Apply the margin in atomic (wei) space to avoid float precision loss before formatting.
+  const priceWithMargin = margin
+    ? scaleBigInt(priceAtomic, 1 + margin)
+    : priceAtomic;
   return {
-    ETH: ethereumPriceConverted.multipliedBy(1 + margin).toFixed(),
+    ETH: formatEther(priceWithMargin),
   };
 }

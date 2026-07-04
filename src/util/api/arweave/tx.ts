@@ -80,6 +80,46 @@ export async function resolveArweaveTxKey(
   return tx.key || '';
 }
 
+// Persist the funding top-up tx on the upload doc BEFORE notifying the Irys indexer,
+// so a crash/5xx between send and notify still leaves a replayable record.
+export async function setArweaveTxFundingSent(docId: string, {
+  fundingTxHash,
+  fundingETH,
+}: {
+  fundingTxHash: string;
+  fundingETH: string;
+}): Promise<void> {
+  await iscnArweaveTxCollection.doc(docId).update({
+    fundingTxHash,
+    fundingETH,
+    fundingStatus: 'sent',
+    fundingTimestamp: FieldValue.serverTimestamp(),
+    lastUpdateTimestamp: FieldValue.serverTimestamp(),
+  });
+}
+
+export async function markArweaveTxFundingCredited(docId: string): Promise<void> {
+  await iscnArweaveTxCollection.doc(docId).update({
+    fundingStatus: 'credited',
+    lastUpdateTimestamp: FieldValue.serverTimestamp(),
+  });
+}
+
+// Uploads whose funding was sent but never confirmed credited — the reconcile job
+// re-notifies these (idempotent) newest-first.
+export async function getPendingFundingArweaveTxs(
+  limit = 100,
+): Promise<Array<{ id: string; fundingTxHash: string }>> {
+  const snapshot = await iscnArweaveTxCollection
+    .where('fundingStatus', '==', 'sent')
+    .orderBy('fundingTimestamp', 'desc')
+    .limit(limit)
+    .get();
+  return snapshot.docs
+    .map((doc) => ({ id: doc.id, fundingTxHash: doc.data()?.fundingTxHash }))
+    .filter((d): d is { id: string; fundingTxHash: string } => !!d.fundingTxHash);
+}
+
 export async function rotateArweaveTxAccessToken(txHash: string): Promise<string> {
   const accessToken = uuidv4();
   await iscnArweaveTxCollection.doc(txHash).update({

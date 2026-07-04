@@ -14,6 +14,12 @@ export function constantTimeEqual(a: string, b: string): boolean {
   return timingSafeEqual(aBuf, bBuf);
 }
 
+// Multiply a bigint amount by a float factor in fixed-point (1e6) space,
+// avoiding float precision loss on large wei amounts.
+export function scaleBigInt(amount: bigint, factor: number): bigint {
+  return (amount * BigInt(Math.round(factor * 1e6))) / 1000000n;
+}
+
 export function removeUndefinedObjectKey(obj) {
   return Object.keys(obj).reduce((acc, key) => {
     const a = acc;

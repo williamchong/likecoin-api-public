@@ -36,15 +36,30 @@ const baseSepoliaWithFee = defineChain({
   },
 });
 
+// Base chain (with the shared fee multiplier) for the active network, reused by any
+// wallet client on Base regardless of which key signs.
+export const evmChain = IS_TESTNET ? baseSepoliaWithFee : baseWithFee;
+
 export function getEVMClient(): PublicClient<HttpTransport, Chain, undefined> {
   if (!client) {
     const rpcUrl = config.EVM_RPC_ENDPOINT_OVERRIDE || undefined;
     client = createPublicClient({
-      chain: IS_TESTNET ? baseSepoliaWithFee : baseWithFee,
+      chain: evmChain,
       transport: http(rpcUrl),
     }) as PublicClient<HttpTransport, Chain, undefined>;
   }
   return client;
+}
+
+// Build a Base wallet client for any signing account (shared chain + RPC transport).
+export function createEVMWalletClient(
+  account: LocalAccount,
+): WalletClient<HttpTransport, Chain, LocalAccount> {
+  return createWalletClient({
+    account,
+    chain: evmChain,
+    transport: http(config.EVM_RPC_ENDPOINT_OVERRIDE || undefined),
+  });
 }
 
 export function getEVMWalletAccount(): LocalAccount {
@@ -55,13 +70,7 @@ export function getEVMWalletAccount(): LocalAccount {
 
 export function getEVMWalletClient(): WalletClient<HttpTransport, Chain, LocalAccount> {
   if (!walletClient) {
-    const account = getEVMWalletAccount();
-    const rpcUrl = config.EVM_RPC_ENDPOINT_OVERRIDE || undefined;
-    walletClient = createWalletClient({
-      account,
-      chain: IS_TESTNET ? baseSepoliaWithFee : baseWithFee,
-      transport: http(rpcUrl),
-    });
+    walletClient = createEVMWalletClient(getEVMWalletAccount());
   }
   return walletClient;
 }

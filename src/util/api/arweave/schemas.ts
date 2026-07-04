@@ -64,3 +64,21 @@ export const ArweaveLinkResponseSchema = z.object({
 export const ArweaveAccessTokenResponseSchema = z.object({
   accessToken: z.string(),
 });
+
+export const ArweaveFundingReconcileBodySchema = z.object({
+  dryRun: z.boolean().optional(),
+  limit: z.coerce.number().int().positive().max(500)
+    .optional(),
+});
+
+export const ArweaveFundingReconcileResponseSchema = z.object({
+  success: z.boolean(),
+  total: z.number().int().min(0),
+  credited: z.number().int().min(0),
+  results: z.array(z.object({
+    id: z.string(),
+    fundingTxHash: z.string(),
+    credited: z.boolean(),
+    error: z.string().optional(),
+  })),
+});
