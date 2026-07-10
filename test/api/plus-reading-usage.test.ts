@@ -122,6 +122,51 @@ describe('POST /plus/reading/usage', () => {
     // No rev-share-eligible time → no per-reader audit doc.
     const readers = await dayDocRef.collection('readers').get();
     expect(readers.size).toBe(0);
+
+    // ...but the read still counts toward popularity, or free books could never rank.
+    const book = (await likeNFTBookCollection.doc(classId).get()).data() as any;
+    expect(book.plusReadingTotalMs).toBe(5700);
+  });
+
+  it('sums all four duration buckets into the popularity counter on the book doc', async () => {
+    const classId = mockEVMAddress(0x66);
+    await likeNFTBookCollection.doc(classId).set({ classId, ownerWallet: OWNER } as any);
+
+    const res = await post({
+      readerWallet: READER,
+      classId,
+      readingTimeMs: 1000,
+      ttsTimeMs: 2000,
+      nonLibraryReadingTimeMs: 300,
+      nonLibraryTtsTimeMs: 700,
+      occurredAt: Date.UTC(2026, 2, 13, 8),
+    }, AUTH_HEADER);
+    expect(res.status).toBe(200);
+
+    // increment() is identity in the stub, so a single write stores the summed delta.
+    const book = (await likeNFTBookCollection.doc(classId).get()).data() as any;
+    expect(book.plusReadingTotalMs).toBe(4000);
+  });
+
+  it('does not double-count the popularity counter on a deduped retry', async () => {
+    const classId = mockEVMAddress(0x77);
+    await likeNFTBookCollection.doc(classId).set({ classId, ownerWallet: OWNER } as any);
+    const occurredAt = Date.UTC(2026, 2, 14, 8);
+    const entry = (id: string, readingTimeMs: number) => ({
+      id, readerWallet: READER, classId, readingTimeMs, ttsTimeMs: 0, occurredAt,
+    });
+    const readTotal = async () => (await likeNFTBookCollection
+      .doc(classId).get()).data()?.plusReadingTotalMs;
+
+    const first = await post(entry('pop-1', 1000), AUTH_HEADER);
+    expect(first.data.results).toEqual([{ dayId: '2026-03-14', applied: true }]);
+    expect(await readTotal()).toBe(1000);
+
+    // Same id, larger value: the receipt create() aborts the whole batch, so the counter
+    // (which lives in that batch) cannot drift — a non-deduped rewrite would show 5000.
+    const dup = await post(entry('pop-1', 5000), AUTH_HEADER);
+    expect(dup.data.results).toEqual([{ dayId: '2026-03-14', applied: false }]);
+    expect(await readTotal()).toBe(1000);
   });
 
   it('rejects usage for a class id with no book doc', async () => {

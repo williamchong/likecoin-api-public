@@ -177,6 +177,15 @@ export async function recordPlusReadingUsage({
   if (libraryReadingTimeMs > 0 || libraryTtsTimeMs > 0) {
     batch.set(readerDocRef, usageIncrement, { merge: true });
   }
+  // Denormalized onto the book doc because Firestore cannot sort on a subcollection sum.
+  // Counts non-library time too, so free books (which accrue none) can still rank, and so
+  // the public sort key isn't the payout basis settlement pays on.
+  batch.set(bookDocRef, {
+    plusReadingTotalMs: FieldValue.increment(
+      libraryReadingTimeMs + libraryTtsTimeMs
+      + statsNonLibraryReadingTimeMs + statsNonLibraryTtsTimeMs,
+    ),
+  }, { merge: true });
 
   try {
     await batch.commit();
