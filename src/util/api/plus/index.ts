@@ -1198,23 +1198,22 @@ export async function processStripeSubscriptionCancellation(
     utmContent,
     utmTerm,
   } = subscription.metadata || {};
-  if (!evmWallet && !likeWallet) {
-    // eslint-disable-next-line no-console
-    console.warn(`No evmWallet or likeWallet found in subscription: ${subscriptionId}`);
+  if (subscription.status !== 'canceled' && subscription.status !== 'unpaid') {
     return;
   }
-  const user = await getUserWithCivicLikerPropertiesByWallet(evmWallet || likeWallet);
-  if (!user) {
-    // eslint-disable-next-line no-console
-    console.warn(`No likerId found for evmWallet: ${evmWallet}, likeWallet: ${likeWallet}, subscription: ${subscriptionId}`);
-    return;
-  }
-  const likerId = user.user;
+
+  // User is optional here: wallet-less or unresolved cancellations still emit analytics below,
+  // only the Firestore/Intercom writes are skipped.
+  const user = (evmWallet || likeWallet)
+    ? await getUserWithCivicLikerPropertiesByWallet(evmWallet || likeWallet)
+    : null;
+  const likerId = user?.user;
   const isTrialEnd = subscription.trial_end && subscription.cancel_at === subscription.trial_end;
-  if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
+
+  if (user) {
     const currentPeriodEnd = user.likerPlus?.currentPeriodEnd;
     if (currentPeriodEnd && currentPeriodEnd > Date.now()) {
-      await userCollection.doc(likerId).update({
+      await userCollection.doc(user.user).update({
         likerPlus: {
           ...user.likerPlus,
           currentPeriodEnd: Date.now(),
@@ -1223,51 +1222,50 @@ export async function processStripeSubscriptionCancellation(
       });
     }
 
-    await updateIntercomUserAttributes(likerId, {
+    await updateIntercomUserAttributes(user.user, {
       is_liker_plus: false,
       is_liker_plus_trial: false,
     });
-
-    const subscriptionItem = subscription.items?.data[0];
-    const period = subscriptionItem?.plan?.interval;
-    const priceId = subscriptionItem?.price?.id;
-    const cancellationExtraProperties = {
-      subscription_id: subscriptionId,
-      period,
-      price_id: priceId,
-      cancel_reason: subscription.cancellation_details?.reason,
-      cancel_feedback: subscription.cancellation_details?.feedback,
-      cancel_comment: subscription.cancellation_details?.comment?.substring(0, 500),
-      ...mapAttributionExtraProperties({
-        utmSource, utmMedium, utmCampaign, utmContent, utmTerm, from,
-      }),
-    };
-    if (isTrialEnd) {
-      await Promise.all([
-        sendIntercomEvent({
-          userId: likerId,
-          eventName: 'plus_trial_end',
-        }),
-        logServerEvents('TrialEnded', {
-          evmWallet,
-          paymentId: subscriptionId,
-          extraProperties: cancellationExtraProperties,
-        }),
-      ]);
-    } else {
-      await Promise.all([
-        sendIntercomEvent({
-          userId: likerId,
-          eventName: 'plus_subscription_end',
-        }),
-        logServerEvents('SubscriptionCancelled', {
-          evmWallet,
-          paymentId: subscriptionId,
-          extraProperties: cancellationExtraProperties,
-        }),
-      ]);
-    }
+  } else {
+    // eslint-disable-next-line no-console
+    console.warn(`No user record for evmWallet: ${evmWallet}, likeWallet: ${likeWallet}, subscription: ${subscriptionId}; emitting analytics only`);
   }
+
+  const subscriptionItem = subscription.items?.data[0];
+  const period = subscriptionItem?.plan?.interval;
+  const priceId = subscriptionItem?.price?.id;
+  // Wallet-less checkouts have no identity to attribute to; emit under a synthetic
+  // customer-scoped id so the churn is still counted, flagged as unattributed.
+  const customerId = typeof subscription.customer === 'string'
+    ? subscription.customer
+    : subscription.customer?.id;
+  const isUnattributed = !evmWallet && !likeWallet;
+  const cancellationExtraProperties = {
+    subscription_id: subscriptionId,
+    period,
+    price_id: priceId,
+    cancel_reason: subscription.cancellation_details?.reason,
+    cancel_feedback: subscription.cancellation_details?.feedback,
+    cancel_comment: subscription.cancellation_details?.comment?.substring(0, 500),
+    ...(isUnattributed ? { unattributed: true } : {}),
+    ...mapAttributionExtraProperties({
+      utmSource, utmMedium, utmCampaign, utmContent, utmTerm, from,
+    }),
+  };
+  const analyticsOptions = {
+    evmWallet,
+    likeWallet,
+    paymentId: subscriptionId,
+    posthogDistinctId: isUnattributed && customerId ? `stripe:${customerId}` : undefined,
+    extraProperties: cancellationExtraProperties,
+  };
+  await Promise.all([
+    ...(likerId ? [sendIntercomEvent({
+      userId: likerId,
+      eventName: isTrialEnd ? 'plus_trial_end' : 'plus_subscription_end',
+    })] : []),
+    logServerEvents(isTrialEnd ? 'TrialEnded' : 'SubscriptionCancelled', analyticsOptions),
+  ]);
 }
 
 export async function processStripePaymentFailure(
