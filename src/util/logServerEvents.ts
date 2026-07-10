@@ -21,6 +21,7 @@ export default async function logServerEvents(
     fbp?: string;
     fbc?: string;
     evmWallet?: string;
+    likeWallet?: string;
     gaClientId?: string;
     gaSessionId?: string;
     posthogDistinctId?: string;

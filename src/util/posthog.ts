@@ -52,6 +52,7 @@ export async function shutdownPostHog(): Promise<void> {
 
 export default function logPostHogEvents(event: ServerEventName, {
   evmWallet,
+  likeWallet,
   email,
   items,
   value,
@@ -63,6 +64,7 @@ export default function logPostHogEvents(event: ServerEventName, {
   setOnce,
 }: {
   evmWallet?: string;
+  likeWallet?: string;
   email?: string;
   items?: AnalyticsItem[];
   value?: number;
@@ -77,7 +79,10 @@ export default function logPostHogEvents(event: ServerEventName, {
   if (!client) {
     return;
   }
-  if (!evmWallet) {
+  // Legacy likeWallet-only users (Cosmos-era, no evmWallet) must still be counted;
+  // callers with neither wallet may pass a synthetic posthogDistinctId (e.g. `stripe:<customer>`).
+  const distinctId = evmWallet || likeWallet || posthogDistinctId;
+  if (!distinctId) {
     return;
   }
   const posthogEvent = SERVER_EVENT_MAP[event];
@@ -88,11 +93,11 @@ export default function logPostHogEvents(event: ServerEventName, {
   }
   try {
     // $anon_distinct_id triggers PostHog's implicit person-merge; skip when equal to avoid a no-op.
-    const anonDistinctId = posthogDistinctId && posthogDistinctId !== evmWallet
+    const anonDistinctId = posthogDistinctId && posthogDistinctId !== distinctId
       ? posthogDistinctId
       : undefined;
     client.capture({
-      distinctId: evmWallet,
+      distinctId,
       event: posthogEvent,
       uuid: typeof paymentId === 'string' && paymentId
         ? derivePostHogEventUUID(posthogEvent, paymentId)
