@@ -803,6 +803,8 @@ router.post(['/:classId/new', '/class/:classId/new'], jwtAuth('write:nftbook'), 
       descriptionFull,
       isAdultOnly = false,
       isPlusReadingEnabled = false,
+      isPreviewEnabled = false,
+      previewPercentage,
     } = req.body;
 
     let ownerWallet = '';
@@ -863,6 +865,8 @@ router.post(['/:classId/new', '/class/:classId/new'], jwtAuth('write:nftbook'), 
       hideUpsell,
       isAdultOnly,
       isPlusReadingEnabled,
+      isPreviewEnabled,
+      previewPercentage,
 
       // From ISCN content metadata
       inLanguage,
@@ -1011,6 +1015,8 @@ router.post(['/:classId/settings', '/class/:classId/settings'], jwtAuth('write:n
       descriptionFull,
       isAdultOnly,
       isPlusReadingEnabled,
+      isPreviewEnabled,
+      previewPercentage,
     } = req.body;
     const bookInfo = await getNftBookInfo(classId);
     const {
@@ -1035,6 +1041,8 @@ router.post(['/:classId/settings', '/class/:classId/settings'], jwtAuth('write:n
       descriptionFull,
       isAdultOnly,
       isPlusReadingEnabled,
+      isPreviewEnabled,
+      previewPercentage,
     });
 
     publisher.publish(PUBSUB_TOPIC_MISC, req, {

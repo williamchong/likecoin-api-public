@@ -63,6 +63,9 @@ export const ListingSettingsBodySchema = z.object({
   descriptionFull: z.string().optional(),
   isAdultOnly: z.boolean().optional(),
   isPlusReadingEnabled: z.boolean().optional(),
+  isPreviewEnabled: z.boolean().optional(),
+  previewPercentage: z.number().int().min(1).max(50)
+    .optional(),
 });
 
 export const NewListingBodySchema = ListingSettingsBodySchema.extend({
@@ -401,6 +404,9 @@ export const NFTBookListingInfoFilteredSchema = z.object({
   approvalStatus: z.string().optional(),
   plusPromoEnabled: z.boolean().optional(),
   isPlusReadingEnabled: z.boolean().optional(),
+  isPreviewEnabled: z.boolean().optional(),
+  previewPercentage: z.number().int().min(1).max(50)
+    .optional(),
 });
 
 export const BookGiftInfoSchema = z.object({
