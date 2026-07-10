@@ -178,6 +178,8 @@ export interface NFTBookListingInfo {
   approvalStatus?: string;
   plusPromoEnabled?: boolean;
   isPlusReadingEnabled?: boolean;
+  isPreviewEnabled?: boolean;
+  previewPercentage?: number;
   // Lifetime recorded reading + TTS time, denormalized from the `plusUsage`
   // rollups so listings can order by it. See recordPlusReadingUsage.
   plusReadingTotalMs?: number;

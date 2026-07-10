@@ -294,6 +294,8 @@ export async function newNftBookInfo(
     image,
     isAdultOnly,
     isPlusReadingEnabled,
+    isPreviewEnabled,
+    previewPercentage,
   } = data;
   const previewContent = getPreviewContentFromHasPart(hasPart);
 
@@ -361,6 +363,8 @@ export async function newNftBookInfo(
   if (tableOfContents) payload.tableOfContents = tableOfContents;
   if (isAdultOnly !== undefined) payload.isAdultOnly = isAdultOnly;
   if (isPlusReadingEnabled !== undefined) payload.isPlusReadingEnabled = isPlusReadingEnabled;
+  if (isPreviewEnabled !== undefined) payload.isPreviewEnabled = isPreviewEnabled;
+  if (previewPercentage !== undefined) payload.previewPercentage = previewPercentage;
   await likeNFTBookCollection.doc(classId).create(payload);
   return {
     isAutoApproved: isTrustedPublisher,
@@ -509,6 +513,8 @@ export async function updateNftBookInfo(classId: string, {
   descriptionFull,
   isAdultOnly,
   isPlusReadingEnabled,
+  isPreviewEnabled,
+  previewPercentage,
 }: {
   prices?: NFTBookPrice[];
   moderatorWallets?: string[];
@@ -524,6 +530,8 @@ export async function updateNftBookInfo(classId: string, {
   descriptionFull?: string;
   isAdultOnly?: boolean;
   isPlusReadingEnabled?: boolean;
+  isPreviewEnabled?: boolean;
+  previewPercentage?: number;
 } = {}) {
   const timestamp = FieldValue.serverTimestamp();
   const payload: any = {
@@ -556,6 +564,8 @@ export async function updateNftBookInfo(classId: string, {
     if (isAdultOnly) { payload.isApprovedForAds = false; }
   }
   if (isPlusReadingEnabled !== undefined) { payload.isPlusReadingEnabled = isPlusReadingEnabled; }
+  if (isPreviewEnabled !== undefined) { payload.isPreviewEnabled = isPreviewEnabled; }
+  if (previewPercentage !== undefined) { payload.previewPercentage = previewPercentage; }
   await likeNFTBookCollection.doc(classId).update(payload);
   await syncNFTBookInfoWithISCN(classId);
 }
