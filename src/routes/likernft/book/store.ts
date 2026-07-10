@@ -7,6 +7,7 @@ import {
   getNftBookInfo,
   listLatestNFTBookInfo,
   listFilteredNFTBookInfo,
+  listPopularNFTBookInfo,
   listNftBookInfoByModeratorWallet,
   newNftBookInfo,
   updateNftBookInfo,
@@ -43,6 +44,9 @@ import {
   BookCatalogStripeResponseSchema,
   BookCatalogGoogleResponseSchema,
   BookListResponseSchema,
+  BookPopularListQuerySchema,
+  type BookPopularListQuery,
+  BookPopularListResponseSchema,
   BookListModeratedResponseSchema,
   BookSearchResponseSchema,
   BookInfoResponseSchema,
@@ -323,6 +327,41 @@ function createDerivedListHandler(filter: 'free' | 'drm-free') {
 
 router.get('/list/free', jwtOptionalAuth('read:nftbook'), validateQuery(BookListPaginationQuerySchema), createDerivedListHandler('free'));
 router.get('/list/drm-free', jwtOptionalAuth('read:nftbook'), validateQuery(BookListPaginationQuerySchema), createDerivedListHandler('drm-free'));
+
+// Books ranked by lifetime reading + TTS time; `library=1` scopes it to Plus-reading titles.
+// Separate from createDerivedListHandler because it paginates by class-id cursor rather
+// than by timestamp key, so its `nextKey` is a string.
+router.get('/list/popular', jwtOptionalAuth('read:nftbook'), validateQuery(BookPopularListQuerySchema), async (req: QueryRequest<BookPopularListQuery>, res, next) => {
+  try {
+    const { library, limit, key } = req.query;
+    const bookInfos = await listPopularNFTBookInfo({
+      isPlusReadingEnabled: library === '1' || undefined,
+      limit,
+      key,
+    });
+    const list = bookInfos.flatMap((b: NFTBookListingInfo) => {
+      const {
+        isHidden, redirectClassId, moderatorWallets = [], ownerWallet,
+      } = b;
+      if (redirectClassId) return [];
+      const isAuthorized = checkIsAuthorized({ ownerWallet, moderatorWallets }, req);
+      if (!isAuthorized && isHidden) return [];
+      return [filterNFTBookListingInfo(b, isAuthorized)];
+    });
+    // Cursor off the unfiltered Firestore result: filtered-out docs (hidden / redirected)
+    // must not end pagination early, and the next page resumes from the last doc read.
+    const lastBookInfo = bookInfos[bookInfos.length - 1];
+    const nextKey = bookInfos.length < limit ? null : (lastBookInfo?.id ?? null);
+    if (req.user) {
+      res.set('Cache-Control', 'no-store');
+    } else {
+      res.set('Cache-Control', `public, max-age=60, s-maxage=60, stale-while-revalidate=${ONE_DAY_IN_S}, stale-if-error=${ONE_DAY_IN_S}`);
+    }
+    sendValidatedJSON(res, BookPopularListResponseSchema, { list, nextKey });
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.get('/list/moderated', jwtAuth('read:nftbook'), async (req, res, next) => {
   try {

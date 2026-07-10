@@ -326,6 +326,9 @@ export async function newNftBookInfo(
     isApprovedForIndexing: true,
     isApprovedForAds: (isAdultOnly ? false : isTrustedPublisher),
     approvalStatus: isTrustedPublisher ? 'approved' : 'pending',
+    // Seed the popularity sort key: Firestore drops documents missing an `orderBy`
+    // field, so an unseeded book would never surface in the popular listing at all.
+    plusReadingTotalMs: 0,
   };
   const minPriceInDecimal = getMinListedPriceInDecimal(newPrices);
   if (minPriceInDecimal !== undefined) payload.minPriceInDecimal = minPriceInDecimal;
@@ -617,6 +620,43 @@ export async function listFilteredNFTBookInfo({
   const tsNumber = before ?? key;
   if (tsNumber !== undefined) {
     snapshot = snapshot.startAfter(Timestamp.fromMillis(tsNumber));
+  }
+  if (limit !== undefined) {
+    snapshot = snapshot.limit(limit);
+  }
+  const query = await snapshot.get();
+  return query.docs.map((doc) => {
+    const docData = doc.data();
+    return { id: doc.id, ...docData };
+  });
+}
+
+/**
+ * Books ranked by lifetime recorded reading + TTS time (`plusReadingTotalMs`, maintained by
+ * `recordPlusReadingUsage`), then newest-first so the large unread tail — every book is
+ * zero-seeded — still browses in a sensible, stable order.
+ */
+export async function listPopularNFTBookInfo({
+  isPlusReadingEnabled,
+  limit,
+  key,
+}: {
+  isPlusReadingEnabled?: boolean;
+  limit?: number;
+  key?: string;
+} = {}) {
+  let snapshot = likeNFTBookCollection
+    .orderBy('plusReadingTotalMs', 'desc')
+    .orderBy('timestamp', 'desc');
+  if (isPlusReadingEnabled !== undefined) {
+    snapshot = snapshot.where('isPlusReadingEnabled', '==', isPlusReadingEnabled);
+  }
+  // A document cursor, not a value cursor: it resumes exactly, including the implicit
+  // `__name__` tiebreak, so the huge block of books tied at 0 ms can page without gaps.
+  if (key) {
+    const cursorDoc = await likeNFTBookCollection.doc(key.toLowerCase()).get();
+    if (!cursorDoc.exists) throw new ValidationError('INVALID_KEY', 400);
+    snapshot = snapshot.startAfter(cursorDoc);
   }
   if (limit !== undefined) {
     snapshot = snapshot.limit(limit);

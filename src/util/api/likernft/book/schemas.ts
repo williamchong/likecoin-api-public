@@ -197,6 +197,17 @@ export const BookListQuerySchema = BookListPaginationQuerySchema.extend({
 });
 export type BookListQuery = z.infer<typeof BookListQuerySchema>;
 
+// Scopes and paginates like its `/list*` siblings, except the cursor is the previous page's
+// last class id rather than a timestamp — ranking ties can't be resumed from a value alone.
+export const BookPopularListQuerySchema = BookListPaginationQuerySchema
+  .omit({ before: true, key: true })
+  .extend({
+    // Cursor is a class id (EVM `0x…` or legacy Cosmos `likenft1…`); restrict to an
+    // alphanumeric charset so a stray `/` can't make Firestore's `.doc()` throw a 500.
+    key: z.string().regex(/^[a-zA-Z0-9]+$/).optional(),
+  });
+export type BookPopularListQuery = z.infer<typeof BookPopularListQuerySchema>;
+
 // Shared by the Meta, OpenAI, and Stripe catalog routes — output is selected via `format`.
 export const BookCatalogQuerySchema = z.object({
   format: z.string().optional(),
@@ -453,6 +464,10 @@ export const BookSearchResponseSchema = z.object({
 export const BookListResponseSchema = z.object({
   list: z.array(NFTBookListingInfoFilteredSchema),
   nextKey: z.number().nullable(),
+});
+
+export const BookPopularListResponseSchema = BookListResponseSchema.extend({
+  nextKey: z.string().nullable(),
 });
 
 export const BookListModeratedResponseSchema = z.object({
