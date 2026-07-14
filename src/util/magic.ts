@@ -17,6 +17,11 @@ export async function getMagic(): Promise<Magic> {
 export async function getMagicUserMetadataByDIDToken(didToken: string): Promise<MagicUserMetadata> {
   const magic = await getMagic();
   try {
+    // getMetadataByToken only decodes the token; validate() does the actual
+    // signature, expiry, nbf, and audience checks. Without it any decodable
+    // (e.g. leaked or expired) DID token would authenticate.
+    // Awaited per Magic's docs (Promise<void>); the current SDK types it sync.
+    await magic.token.validate(didToken);
     return await magic.users.getMetadataByToken(didToken);
   } catch (err) {
     // Magic SDK errors aren't ValidationErrors, so they'd surface as 500s and lose `data`.
