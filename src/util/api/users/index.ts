@@ -246,6 +246,10 @@ export async function userOrWalletByEmailQuery({
         payload = {
           evmWallet: maskString(docData.evmWallet),
           likeWallet: maskString(docData.likeWallet, { start: 11 }),
+          // Masking hides both preconditions of the magic-email migrate endpoint
+          // (no rival EVM wallet, verified email), so state them explicitly. Not
+          // v1-only: a likeWallet account migrates too, just via another branch.
+          isMigratable: !docData.evmWallet && !!docData.isEmailVerified,
         };
       }
       throw new ValidationError('EMAIL_ALREADY_USED', 400, payload);

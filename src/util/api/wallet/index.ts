@@ -20,6 +20,16 @@ import {
 import { getStripeClient } from '../../stripe';
 import { bookCacheBucket } from '../../gcloudStorage';
 import { updateIntercomUserAttributes } from '../../intercom';
+import type { WalletEvmMigrateResult } from './schemas';
+
+type MigrateMethod = 'manual' | 'auto';
+
+// A v1 Liker ID predates the chain: it holds only the legacy ERC-20 `wallet`
+// field. Both wallets must be absent, or the account belongs on the full
+// likeWallet pipeline instead.
+export function isLegacyV1User(user: { likeWallet?: unknown; cosmosWallet?: unknown }): boolean {
+  return !user.likeWallet && !user.cosmosWallet;
+}
 
 export async function findLikeWalletByEVMWallet(evmWallet: string) {
   const userQuery = await likeNFTBookUserCollection.where('evmWallet', '==', checksumAddress(evmWallet as `0x${string}`)).get();
@@ -196,6 +206,76 @@ async function migrateLikerId(likeWallet:string, evmWallet: string, method: 'man
     console.error(error);
     return { likerId: null, error: (error as Error).message };
   }
+}
+
+async function linkEVMWalletToLikerId(likerId: string, evmWallet: string, method: MigrateMethod = 'manual') {
+  try {
+    // Login and /users/new both query evmWallet in EIP-55 form; a raw-case value
+    // would evade the collision check below and be invisible to login.
+    const checksummedEVMWallet = checksumAddress(evmWallet as `0x${string}`);
+    await db.runTransaction(async (t: admin.firestore.Transaction) => {
+      const userRef = userCollection.doc(likerId);
+      const [userDoc, evmQuery] = await Promise.all([
+        t.get(userRef),
+        // limit(2): the current doc may self-match, so a second holder stays visible.
+        t.get(userCollection.where('evmWallet', '==', checksummedEVMWallet).limit(2)),
+      ]);
+      const userData = userDoc.data();
+      if (!userDoc.exists || !userData) {
+        throw new Error('LIKER_ID_NOT_FOUND');
+      }
+      if (!isLegacyV1User(userData)) {
+        throw new Error('USER_HAS_LIKE_WALLET');
+      }
+      if (evmQuery.docs.some((doc) => doc.id !== likerId)) {
+        throw new Error('EVM_WALLET_ALREADY_EXIST');
+      }
+      if (userData.evmWallet && userData.evmWallet !== checksummedEVMWallet) {
+        throw new Error('EVM_WALLET_NOT_MATCH_USER_RECORD');
+      }
+      t.update(userRef, {
+        evmWallet: checksummedEVMWallet,
+        migrateMethod: method,
+        migrateTimestamp: FieldValue.serverTimestamp(),
+      });
+    });
+
+    await updateIntercomUserAttributes(likerId, {
+      evm_wallet: checksummedEVMWallet,
+    });
+
+    return { likerId, error: null };
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(error);
+    return { likerId: null, error: (error as Error).message };
+  }
+}
+
+// Nothing is keyed by a like-address for a v1 account, so the book user, book
+// owner and liker.land steps have no records to move: linking the EVM wallet
+// onto the user doc is the whole migration.
+export async function migrateLegacyUserToEVMWallet(
+  likerId: string,
+  evmWallet: string,
+  method: MigrateMethod = 'manual',
+): Promise<WalletEvmMigrateResult> {
+  const {
+    likerId: migratedLikerId,
+    error: migrateLikerIdError,
+  } = await linkEVMWalletToLikerId(likerId, evmWallet, method);
+  return {
+    isMigratedBookUser: false,
+    isMigratedBookOwner: false,
+    isMigratedLikerId: !migrateLikerIdError,
+    isMigratedLikerLand: false,
+    migratedLikerId,
+    migratedLikerLandUser: null,
+    migrateBookUserError: null,
+    migrateBookOwnerError: null,
+    migrateLikerIdError,
+    migrateLikerLandError: null,
+  };
 }
 
 export async function migrateBookClassId(likeClassId: string, evmClassId: string) {
@@ -391,7 +471,11 @@ export async function migrateLikeUserToEVMUser(likeWallet: string, evmWallet: st
   };
 }
 
-export async function migrateLikeWalletToEVMWallet(likeWallet: string, evmWallet: string, method: 'manual' | 'auto' = 'manual') {
+export async function migrateLikeWalletToEVMWallet(
+  likeWallet: string,
+  evmWallet: string,
+  method: MigrateMethod = 'manual',
+): Promise<WalletEvmMigrateResult> {
   const { error: migrateBookUserError } = await migrateBookUser(likeWallet, evmWallet, method);
   if (migrateBookUserError) {
     return {

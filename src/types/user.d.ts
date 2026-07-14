@@ -100,6 +100,10 @@ export interface UserData {
   evmWallet?: string;
   wallet?: string;
 
+  // Set by the EVM migration; migrateTimestamp only on the legacy v1 path.
+  migrateMethod?: 'manual' | 'auto';
+  migrateTimestamp?: Timestamp;
+
   // Auth provider fields
   authCoreUserId?: string;
   magicUserId?: string;
