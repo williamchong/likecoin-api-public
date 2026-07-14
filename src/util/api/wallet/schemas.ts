@@ -72,6 +72,10 @@ export const WalletEvmMigrateResponseSchema = z.object({
   migrateLikerLandError: z.unknown().nullable(),
 });
 
+// Both migration paths (likeWallet and legacy v1) must return this exact shape;
+// the route forwards it straight to sendValidatedJSON.
+export type WalletEvmMigrateResult = z.infer<typeof WalletEvmMigrateResponseSchema>;
+
 export const WalletEvmMigrateBookResponseSchema = z.object({
   migratedClassIds: z.array(z.string()).optional(),
   error: z.string().nullable().optional(),

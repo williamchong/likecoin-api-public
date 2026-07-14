@@ -136,4 +136,29 @@ describe('userOrWalletByEmailQuery', () => {
       expect((err as ValidationError).payload).toBeNull();
     }
   });
+
+  it('flags a wallet-less v1 account as migratable', async () => {
+    // testv1legacycheck has neither likeWallet nor evmWallet, so the masked fields
+    // are both empty; isMigratable is the client's only signal to auto-link it.
+    try {
+      await userOrWalletByEmailQuery({ evmWallet: '0xNEW' }, 'v1legacycheck@likecoin.store', true);
+      throw new Error('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ValidationError);
+      const { payload } = err as ValidationError;
+      expect(payload.evmWallet).toBeUndefined();
+      expect(payload.likeWallet).toBeUndefined();
+      expect(payload.isMigratable).toBe(true);
+    }
+  });
+
+  it('flags an account that already has an evmWallet as not migratable', async () => {
+    try {
+      await userOrWalletByEmailQuery({ evmWallet: '0xNEW' }, 'testing@likecoin.store', true);
+      throw new Error('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ValidationError);
+      expect((err as ValidationError).payload.isMigratable).toBe(false);
+    }
+  });
 });

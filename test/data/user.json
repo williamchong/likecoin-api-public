@@ -160,6 +160,22 @@
           "likeWallet": "like1gmailunverified000000000000000000000000"
         },
         {
+          "id": "testv1legacy",
+          "displayName": "testv1legacy",
+          "email": "v1legacy@likecoin.store",
+          "normalizedEmail": "v1legacy@likecoin.store",
+          "wallet": "0x8dF1F7A5B0d9dA4CF3F5B3f3Cc31A5B6e0dE79F2",
+          "isEmailVerified": true
+        },
+        {
+          "id": "testv1legacycheck",
+          "displayName": "testv1legacycheck",
+          "email": "v1legacycheck@likecoin.store",
+          "normalizedEmail": "v1legacycheck@likecoin.store",
+          "wallet": "0x3cD2b9F4E1a7C6D8b5E0F2a3C4d5E6f7A8b9C0d1",
+          "isEmailVerified": true
+        },
+        {
           "id": "testprotonlegacy",
           "displayName": "testprotonlegacy",
           "email": "John.Roe+news@proton.me",

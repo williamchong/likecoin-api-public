@@ -11,9 +11,12 @@ import { jwtSign } from '../../util/jwt';
 import {
   findLikeWalletByEVMWallet,
   checkBookUserEVMWallet,
+  isLegacyV1User,
   migrateBookClassId,
+  migrateLegacyUserToEVMWallet,
   migrateLikeWalletToEVMWallet,
 } from '../../util/api/wallet';
+import { isValidEVMAddress } from '../../util/evm';
 import {
   WalletAuthorizeBodySchema,
   WalletEvmMigrateEmailMagicBodySchema,
@@ -164,26 +167,29 @@ router.get('/evm/migrate/user/addr/:likeWallet', validateParams(WalletLikeWallet
 router.post('/evm/migrate/email/magic', validateBody(WalletEvmMigrateEmailMagicBodySchema), async (req, res, next) => {
   try {
     const {
-      wallet: evmWallet,
+      wallet: inputEVMWallet,
       signature,
       message,
     } = req.body;
     const migrationMethod = 'auto';
-    if (!checkAddressValid(evmWallet)) {
+    if (!isValidEVMAddress(inputEVMWallet)) {
       throw new ValidationError('INVALID_WALLET');
     }
     publisher.publish(PUBSUB_TOPIC_MISC, req, {
       logType: 'migrateLikeUserToEVMUserRequested',
-      evmWallet,
+      evmWallet: inputEVMWallet,
       migrationMethod,
     });
     const signed = await checkEVMSignPayload({
       signature,
       message,
-      inputWallet: evmWallet,
+      inputWallet: inputEVMWallet,
       signMethod: 'personal_sign',
       action: 'migrate',
     });
+    // Checksum only after signing: checkEVMSignPayload compares the wallet in the
+    // signed message case-strictly, but stored evmWallet is always EIP-55.
+    const evmWallet = checksumAddress(inputEVMWallet);
     const { email, magicDIDToken } = signed;
     const isEmailVerified = await verifyEmailByMagicDIDToken(email, magicDIDToken);
     if (isEmailVerified) {
@@ -198,56 +204,34 @@ router.post('/evm/migrate/email/magic', validateBody(WalletEvmMigrateEmailMagicB
       if (!userInfo.isEmailVerified) {
         throw new ValidationError('EXISTING_EMAIL_NOT_VERIFIED');
       }
-      const { likeWallet, evmWallet: docEvmWallet } = userInfo;
+      const {
+        user: likerId,
+        likeWallet,
+        cosmosWallet,
+        evmWallet: docEvmWallet,
+      } = userInfo;
       if (docEvmWallet && docEvmWallet !== evmWallet) {
         throw new ValidationError('EVM_WALLET_MISMATCH');
       }
       publisher.publish(PUBSUB_TOPIC_MISC, req, {
         logType: 'migrateLikeUserToEVMUserBegin',
+        likerId,
         likeWallet,
         evmWallet,
         migrationMethod,
       });
-      const {
-        isMigratedBookUser,
-        isMigratedBookOwner,
-        isMigratedLikerId,
-        isMigratedLikerLand,
-        migratedLikerId,
-        migratedLikerLandUser,
-        migrateBookUserError,
-        migrateBookOwnerError,
-        migrateLikerIdError,
-        migrateLikerLandError,
-      } = await migrateLikeWalletToEVMWallet(likeWallet as string, evmWallet, migrationMethod);
+      const result = isLegacyV1User({ likeWallet, cosmosWallet })
+        ? await migrateLegacyUserToEVMWallet(likerId, evmWallet, migrationMethod)
+        : await migrateLikeWalletToEVMWallet(likeWallet as string, evmWallet, migrationMethod);
       publisher.publish(PUBSUB_TOPIC_MISC, req, {
         logType: 'migrateLikeWalletToEVMUserEnd',
+        likerId,
         likeWallet,
         evmWallet,
-        isMigratedBookUser,
-        isMigratedBookOwner,
-        isMigratedLikerId,
-        isMigratedLikerLand,
         migrationMethod,
-        migratedLikerId,
-        migratedLikerLandUser,
-        migrateBookUserError,
-        migrateBookOwnerError,
-        migrateLikerIdError,
-        migrateLikerLandError,
+        ...result,
       });
-      sendValidatedJSON(res, WalletEvmMigrateResponseSchema, {
-        isMigratedBookUser,
-        isMigratedBookOwner,
-        isMigratedLikerId,
-        isMigratedLikerLand,
-        migratedLikerId,
-        migratedLikerLandUser,
-        migrateBookUserError,
-        migrateBookOwnerError,
-        migrateLikerIdError,
-        migrateLikerLandError,
-      });
+      sendValidatedJSON(res, WalletEvmMigrateResponseSchema, result);
     } else {
       throw new ValidationError('INVALID_EMAIL');
     }
