@@ -1,6 +1,8 @@
 import uuidv4 from 'uuid/v4';
 import { FieldValue, iscnArweaveTxCollection } from '../../firebase';
 import { wrapKey, unwrapKey, isKMSEnabled } from '../../kms';
+import { getUserWalletsByWallet } from '../users/getPublicInfo';
+import { ValidationError } from '../../ValidationError';
 import type { ArweaveTxData } from '../../../types/transaction';
 
 export async function createNewArweaveTx(docId: string, {
@@ -34,6 +36,31 @@ export async function createNewArweaveTx(docId: string, {
 export async function getArweaveTxInfo(txHash: string): Promise<ArweaveTxData | undefined> {
   const doc = await iscnArweaveTxCollection.doc(txHash).get();
   return doc.data();
+}
+
+// Whether reqUserWallet owns a tx stamped with ownerWallet. Matches directly,
+// or across a Cosmos↔EVM migration: a legacy upload owned by a like1… wallet is
+// still owned by the same identity now authenticating with its migrated evmWallet
+// (or vice versa). The user-record lookup runs only when the direct match fails.
+export async function isArweaveTxOwner(
+  reqUserWallet?: string,
+  ownerWallet?: string,
+): Promise<boolean> {
+  if (!reqUserWallet || !ownerWallet) return false;
+  const target = reqUserWallet.toLowerCase();
+  if (target === ownerWallet.toLowerCase()) return true;
+  let wallets: Awaited<ReturnType<typeof getUserWalletsByWallet>>;
+  try {
+    wallets = await getUserWalletsByWallet(ownerWallet);
+  } catch (err) {
+    // ownerWallet not a resolvable address — treat as no match, not a 400.
+    // Anything else (Firestore failure) must surface rather than read as a 403.
+    if (err instanceof ValidationError) return false;
+    throw err;
+  }
+  if (!wallets) return false;
+  return [wallets.evmWallet, wallets.likeWallet, wallets.cosmosWallet]
+    .some((w) => !!w && w.toLowerCase() === target);
 }
 
 export async function updateArweaveTxStatus(txHash: string, {
