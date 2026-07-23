@@ -2,28 +2,17 @@ import * as admin from 'firebase-admin';
 import {
   FIREBASE_STORAGE_BUCKET,
   FIRESTORE_USER_ROOT,
-  FIRESTORE_USER_AUTH_ROOT,
-  FIRESTORE_SUBSCRIPTION_USER_ROOT,
-  FIRESTORE_SUPERLIKE_USER_ROOT,
   FIRESTORE_TX_ROOT,
-  FIRESTORE_IAP_ROOT,
-  FIRESTORE_MISSION_ROOT,
-  FIRESTORE_PAYOUT_ROOT,
-  FIRESTORE_COUPON_ROOT,
   FIRESTORE_CONFIG_ROOT,
   FIRESTORE_OAUTH_CLIENT_ROOT,
   FIRESTORE_LIKER_NFT_ROOT,
-  FIRESTORE_NFT_SUBSCRIPTION_USER_ROOT,
-  FIRESTORE_NFT_FREE_MINT_TX_ROOT,
   FIRESTORE_LIKER_NFT_BOOK_CART_ROOT,
   FIRESTORE_LIKER_NFT_BOOK_CMS_TAG_ROOT,
   FIRESTORE_LIKER_NFT_BOOK_ROOT,
   FIRESTORE_LIKER_NFT_BOOK_USER_ROOT,
   FIRESTORE_LIKER_PLUS_GIFT_CART_ROOT,
-  FIRESTORE_LIKE_URL_ROOT,
   FIRESTORE_ISCN_INFO_ROOT,
   FIRESTORE_ISCN_ARWEAVE_TX_ROOT,
-  FIRESTORE_ISCN_LIKER_URL_ROOT,
 } from '../../config/config';
 import serviceAccount from '../../config/serviceAccountKey.json';
 import type { UserData } from '../types/user';
@@ -34,21 +23,12 @@ import type {
   PlusGiftCartData,
   NFTBookCMSTag,
 } from '../types/book';
-import type { LikeNFTISCNData, FreeMintTxData } from '../types/nft';
+import type { LikeNFTISCNData } from '../types/nft';
 import type { TxData, ArweaveTxData } from '../types/transaction';
 import type {
-  UserAuthData,
-  SubscriptionUserData,
-  SuperLikeData,
-  IAPData,
-  MissionData,
-  PayoutData,
-  CouponData,
   ConfigData,
   OAuthClientInfo,
-  LikeButtonUrlData,
   ISCNInfoData,
-  ISCNMappingData,
 } from '../types/firestore';
 
 let database: admin.firestore.Firestore | undefined;
@@ -87,26 +67,7 @@ function getCollection<T = admin.firestore.DocumentData>(
 }
 
 export const userCollection = getCollection<UserData>(FIRESTORE_USER_ROOT);
-export const userAuthCollection = getCollection<UserAuthData>(
-  FIRESTORE_USER_AUTH_ROOT,
-);
-export const subscriptionUserCollection = getCollection<SubscriptionUserData>(
-  FIRESTORE_SUBSCRIPTION_USER_ROOT,
-);
-export const superLikeUserCollection = getCollection<SuperLikeData>(
-  FIRESTORE_SUPERLIKE_USER_ROOT,
-);
 export const txCollection = getCollection<TxData>(FIRESTORE_TX_ROOT);
-export const iapCollection = getCollection<IAPData>(FIRESTORE_IAP_ROOT);
-export const missionCollection = getCollection<MissionData>(
-  FIRESTORE_MISSION_ROOT,
-);
-export const payoutCollection = getCollection<PayoutData>(
-  FIRESTORE_PAYOUT_ROOT,
-);
-export const couponCollection = getCollection<CouponData>(
-  FIRESTORE_COUPON_ROOT,
-);
 export const configCollection = getCollection<ConfigData>(
   FIRESTORE_CONFIG_ROOT,
 );
@@ -115,12 +76,6 @@ export const oAuthClientCollection = getCollection<OAuthClientInfo>(
 );
 export const likeNFTCollection = getCollection<LikeNFTISCNData>(
   FIRESTORE_LIKER_NFT_ROOT,
-);
-export const likeNFTSubscriptionUserCollection = getCollection<SubscriptionUserData>(
-  FIRESTORE_NFT_SUBSCRIPTION_USER_ROOT,
-);
-export const likeNFTFreeMintTxCollection = getCollection<FreeMintTxData>(
-  FIRESTORE_NFT_FREE_MINT_TX_ROOT,
 );
 export const likeNFTBookCartCollection = getCollection<BookPurchaseCartData>(
   FIRESTORE_LIKER_NFT_BOOK_CART_ROOT,
@@ -137,17 +92,11 @@ export const likeNFTBookUserCollection = getCollection<NFTBookUserData>(
 export const likePlusGiftCartCollection = getCollection<PlusGiftCartData>(
   FIRESTORE_LIKER_PLUS_GIFT_CART_ROOT,
 );
-export const likeButtonUrlCollection = getCollection<LikeButtonUrlData>(
-  FIRESTORE_LIKE_URL_ROOT,
-);
 export const iscnInfoCollection = getCollection<ISCNInfoData>(
   FIRESTORE_ISCN_INFO_ROOT,
 );
 export const iscnArweaveTxCollection = getCollection<ArweaveTxData>(
   FIRESTORE_ISCN_ARWEAVE_TX_ROOT,
-);
-export const iscnMappingCollection = getCollection<ISCNMappingData>(
-  FIRESTORE_ISCN_LIKER_URL_ROOT,
 );
 
 function getBucket(): ReturnType<admin.storage.Storage['bucket']> {

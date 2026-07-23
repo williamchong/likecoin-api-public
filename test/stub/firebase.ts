@@ -10,20 +10,12 @@ import type {
   NFTBookUserData,
   PlusGiftCartData,
 } from '../../src/types/book';
-import type { LikeNFTISCNData, FreeMintTxData } from '../../src/types/nft';
+import type { LikeNFTISCNData } from '../../src/types/nft';
 import type { TxData, ArweaveTxData } from '../../src/types/transaction';
 import type {
-  UserAuthData,
-  SubscriptionUserData,
-  SuperLikeData,
-  IAPData,
-  MissionData,
-  PayoutData,
   ConfigData,
   OAuthClientInfo,
-  LikeButtonUrlData,
   ISCNInfoData,
-  ISCNMappingData,
 } from '../../src/types/firestore';
 
 // Stub a Firestore Timestamp-like object whose closure remembers the captured Date,
@@ -65,9 +57,7 @@ interface StubData {
 }
 
 let userData: StubData[] = [];
-let subscriptionData: StubData[] = [];
 let txData: StubData[] = [];
-let missionData: StubData[] = [];
 let likerNftData: StubData[] = [];
 // Not JSON-backed: seeded per-test. Kept as stable references (mutated in place on reset, see
 // resetTestData) so `dbData` and their collections never lose the binding. `likeNftBookData`
@@ -82,11 +72,7 @@ try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
   userData = require('../data/user.json').users || [];
   // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-  subscriptionData = require('../data/subscription.json').subscriptions || [];
-  // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
   txData = require('../data/tx.json').tx || [];
-  // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-  missionData = require('../data/mission.json').missions || [];
   // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
   likerNftData = require('../data/likernft.json').likernft || [];
 } catch (e) {
@@ -99,11 +85,7 @@ export function resetTestData() {
     // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
     userData = require('../data/user.json').users || [];
     // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-    subscriptionData = require('../data/subscription.json').subscriptions || [];
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
     txData = require('../data/tx.json').tx || [];
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-    missionData = require('../data/mission.json').missions || [];
     // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
     likerNftData = require('../data/likernft.json').likernft || [];
   } catch (e) {
@@ -365,9 +347,7 @@ function createCollection(data: StubData[]): any {
 
 const dbData: StubData[][] = [
   userData,
-  subscriptionData,
   txData,
-  missionData,
   likerNftData,
   likeNftBookData,
   likeNftBookUserData,
@@ -375,30 +355,14 @@ const dbData: StubData[][] = [
 
 export const userCollection = createCollection(userData) as
   CollectionReference<UserData>;
-export const userAuthCollection = createCollection([]) as
-  CollectionReference<UserAuthData>;
-export const subscriptionUserCollection = createCollection(
-  subscriptionData,
-) as CollectionReference<SubscriptionUserData>;
 export const txCollection = createCollection(txData) as
   CollectionReference<TxData>;
-export const iapCollection = createCollection([]) as
-  CollectionReference<IAPData>;
-export const missionCollection = createCollection(missionData) as
-  CollectionReference<MissionData>;
-export const payoutCollection = createCollection([]) as
-  CollectionReference<PayoutData>;
 export const configCollection = createCollection(configData) as
   CollectionReference<ConfigData>;
 export const oAuthClientCollection = createCollection([]) as
   CollectionReference<OAuthClientInfo>;
-export const couponCollection = createCollection([]) as CollectionReference<any>;
 export const likeNFTCollection = createCollection(likerNftData) as
   CollectionReference<LikeNFTISCNData>;
-export const likeNFTSubscriptionUserCollection = createCollection([]) as
-  CollectionReference<SubscriptionUserData>;
-export const likeNFTFreeMintTxCollection = createCollection([]) as
-  CollectionReference<FreeMintTxData>;
 export const likeNFTBookCartCollection = createCollection([]) as
   CollectionReference<BookPurchaseCartData>;
 export const likeNFTBookCollection = createCollection(likeNftBookData) as
@@ -407,16 +371,10 @@ export const likeNFTBookCMSTagCollection = createCollection([]) as
   CollectionReference<NFTBookCMSTag>;
 export const likeNFTBookUserCollection = createCollection(likeNftBookUserData) as
   CollectionReference<NFTBookUserData>;
-export const likeButtonUrlCollection = createCollection([]) as
-  CollectionReference<LikeButtonUrlData>;
 export const iscnInfoCollection = createCollection([]) as
   CollectionReference<ISCNInfoData>;
 export const iscnArweaveTxCollection = createCollection([]) as
   CollectionReference<ArweaveTxData>;
-export const iscnMappingCollection = createCollection([]) as
-  CollectionReference<ISCNMappingData>;
-export const superLikeUserCollection = createCollection([]) as
-  CollectionReference<SuperLikeData>;
 export const likePlusGiftCartCollection = createCollection([]) as
   CollectionReference<PlusGiftCartData>;
 
