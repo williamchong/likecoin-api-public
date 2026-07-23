@@ -46,12 +46,3 @@ export interface LikeNFTMetadataFiltered {
   /* eslint-enable camelcase */
   [key: string]: any;
 }
-
-export interface FreeMintTxData {
-  userId: string;
-  classId?: string;
-  txHash?: string;
-  status?: string;
-  ts?: number;
-  [key: string]: any;
-}

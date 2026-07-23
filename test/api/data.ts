@@ -1,6 +1,5 @@
 import userData from '../data/user.json';
 import txData from '../data/tx.json';
-import subscriptionData from '../data/subscription.json';
 
 //
 // test data
@@ -22,7 +21,7 @@ export const {
 export const {
   since: testingCivicLikerSince1,
   currentPeriodEnd: testingCivicLikerEnd1,
-} = subscriptionData.subscriptions[0];
+} = userData.users[0].civicLiker!;
 export const {
   id: testingUser2,
   email: testingEmail2,

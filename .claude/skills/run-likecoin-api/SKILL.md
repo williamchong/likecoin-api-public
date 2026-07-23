@@ -89,7 +89,7 @@ Pass the **production** path (`/users/...`). The driver adds the `/api` prefix t
 axiosist mounts under — see Gotchas.
 
 Seeded fixture identities live in `test/data/user.json` (`testing`, `testing1`, …),
-plus `subscription.json`, `tx.json`, `mission.json`, `likernft.json`.
+plus `tx.json`, `likernft.json`.
 
 ### Boot the real server — `smoke`
 
